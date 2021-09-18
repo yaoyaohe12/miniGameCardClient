@@ -1,6 +1,10 @@
+import Main from './js/main'
+
+//new Main()
+
+
 import './js/libs/weapp-adapter'
-import './js/msgParse'
-import { lala } from './js/msgParse'
+// import './js/msgParse'
 
 //init
 var initFlag = true
@@ -35,11 +39,18 @@ var cardGap = 20
 var selectUp = 20
 var cardLineWidth = 3
 
+//showCard
+var showCards = []
+
 //出牌按钮
-var showBtnX = cardWidth
-var showBtnY = windowHeight - cardHeight - 50
-var showBtnWidth = 60
-var showBtnHeight = 30
+// var showBtnX = cardWidth
+// var showBtnY = windowHeight - cardHeight - 50
+// var showBtnWidth = 60
+// var showBtnHeight = 30
+var showBtn = new myBtn()
+showBtn.x = cardWidth
+showBtn.y = windowHeight - cardHeight - 50
+showBtn.words = "出牌"
 
 //进入房间按钮
 var EnterBtn = new myBtn()
@@ -62,16 +73,37 @@ var userNames = ["游客1","游客2","游客3","游客4","游客5"]
 
 //scene
 var sceneEnum = {
-  lobby : 1,
-  room : 2
+  getUserNickName: 1,
+  lobby : 2,
+  room : 3
 }
-var scene = sceneEnum.lobby
+var scene = sceneEnum.getUserNickName
 
 //msg
 var msgHeadSize = 4
 var msgTpye = {
   log_in : 1,
   user_info : 2 
+}
+
+function myBtn()
+{
+  this.x = 0;
+  this.y = 0;
+  this.width = 120;
+  this.height = 30
+  this.words = "button"
+  this.bgColor = "#2a5caa" //blue
+  this.wordsColor = "#f15b6c" //red
+}
+
+function card()
+{
+  this.btn = new myBtn()
+  this.words = "err"
+  this.select = false
+  this.btn.width = cardWidth
+  this.btn.height = cardHeight
 }
 
 function drawName()
@@ -93,95 +125,30 @@ function drawWords(w)
   ctx.fillText(w.words, w.x, w.y)
 }
 
-function drawReady(i)
-{
-  i++
-  ctx.clearRect(i*userImageWidth, userImageWidth, userImageWidth, textHight)
-  ctx.fillText(alreadyText, userImageWidth/2-10 + userImageWidth*i, userImageWidth + textHight)
-}
-
-function getCardX(i)
-{
-  var leftpadding = cardWidth
-  return leftpadding + i*cardGap
-}
-
-function getCardY(i)
-{
-  if(cards[i].select == true)
-  {
-    return windowHeight-cardHeight-selectUp;
-  }
-  else
-  { 
-    return windowHeight-cardHeight
-  }
-}
-
-function drawCard(i)
-{
-  ctx.lineWidth = cardLineWidth
-  ctx.strokeStyle = "red"
-  
-  var x = getCardX(i)
-  var y = getCardY(i)
-  var word = cards[i].words
-
-  ctx.fillStyle = "#2a5caa"
-  ctx.fillRect(x, y, cardWidth, cardHeight)
-
-  ctx.fillStyle = "#f15b6c"
-  ctx.strokeRect(x, y, cardWidth, cardHeight)
-
-  ctx.font = "18pt Calibri"
-  ctx.fillText(word, x, y + cardWordHeight)
-}
-
 function drawCards()
 {
-  var i;
-  var clearHeight =  cardHeight+selectUp+cardLineWidth
-  ctx.clearRect(0, windowHeight-clearHeight, windowWidth, clearHeight)
-
+  var i
   for(i=0;i<cards.length;i++)
   {
-    drawCard(i)
+    drawBtn(cards[i].btn)
   }
 }
 
-function drawButtonShowCard()
+function selectCard(i)
 {
-  ctx.fillStyle = "#2a5caa"
-  ctx.fillRect(showBtnX, showBtnY, showBtnWidth, showBtnHeight)
-  ctx.fillStyle = "#f15b6c"
-  ctx.font = "18pt Calibri"
-  ctx.fillText("出牌", showBtnX, showBtnY+20)
-}
-
-function isCardTouched(x,y)
-{
-  var i = cards.length-1
-
-  for(;i>=0;i--)
+  if(cards[i].select)
   {
-    var cardX = getCardX(i)
-    var cardY = getCardY(i)
-    if(x>cardX && y>cardY && x<cardX+cardWidth && y<cardY+cardHeight)
-    {
-      return i
-    }
+      cards[i].btn.y += selectUp
+      cards[i].select = false
   }
-  return -1
+  else
+  {
+    cards[i].btn.y -= selectUp
+    cards[i].select = true
+  }
+
 }
 
-function isShowBtnTouched(x,y)
-{
-  if(x>showBtnX && y>showBtnY && x<showBtnX+showBtnWidth && y<showBtnY+showBtnHeight)
-  {
-    return true
-  } 
-  return false
-}
 function isBtnTouched(btn,x,y)
 {
   if(x>btn.x && y>btn.y && x<btn.x+btn.width && y<btn.y+btn.height)
@@ -216,30 +183,48 @@ function lobbyTochHandler(event)
 
 }
 
-function roomTouchHandler(event)
-{
-
-
-  var touchCard = isCardTouched(event.touches[0].clientX,event.touches[0].clientY)
-  if(touchCard>=0)
-  {
-    cards[touchCard].select = !cards[touchCard].select;
-    drawCards();
-    return
-  }
-  var ret = isShowBtnTouched(event.touches[0].clientX,event.touches[0].clientY)
-  if(ret == true)
-  {
-      console.log("isShowBtnTouched");
-      showCard()
-  }
-}
-
 function showCard()
 {
-  sendMsg()
-  receiveMsg()
+  var i = 0;
+  var j = 0;
+
+  for(i=cards.length-1;i>=0;i--)
+  {
+    if(cards[i].select == true) {
+        cards.splice(i, 1);
+    }
+  }
+  for(i = 0;i<cards.length;i++)
+  {
+    cards[i].btn.x = i*cardGap+cardWidth;
+  }
+  updateCanvas()
 }
+
+function roomTouchHandler(event)
+{
+  var x = event.touches[0].clientX
+  var y = event.touches[0].clientY
+
+  var i = 0;
+  for(i=cards.length-1;i>=0;i--)
+  {
+    if(isBtnTouched(cards[i].btn, x, y))
+    {
+      selectCard(i)
+      updateCanvas()
+      return
+    }
+  }
+
+  if(isBtnTouched(showBtn, x, y))
+  {
+    console.log("isShowBtnTouched");
+    showCard()
+    return
+  }
+}
+
 
 export default class WxPatch{
   static fixScreen() {
@@ -259,14 +244,22 @@ export default class WxPatch{
 function initGame()
 {
   WxPatch.fixScreen()
+  udp.onMessage(receiveMsg)
+  GetUserInfo()
+  canvas.addEventListener('touchstart', touchHandler)
+  initCard([1,2,3,4,6,7,8], cardWidth, windowHeight - cardHeight);
 }
 
-function startGame()
+
+function initCard(arr , x , y)
 {
   var i
-  for(i = 0;i<10;i++)
+  for(i = 0;i<arr.length;i++)
   {
-    cards[i] = {index:i, words:i, exist:true, select:false}
+    cards[i] = new card(i)
+    cards[i].btn.x = x + i*cardGap;
+    cards[i].btn.y = windowHeight - cardHeight;
+    cards[i].btn.words = arr[i]
   }
 }
 
@@ -279,18 +272,6 @@ function drawUser()
   {
     ctx.fillRect(tmp+(userImageWidth+userPadding)*i, 0, userImageWidth, userImageWidth)
   }
-}
-
-
-function myBtn()
-{
-  this.x = 0;
-  this.y = 0;
-  this.width = 120;
-  this.height = 30
-  this.words = "button"
-  this.bgColor = "#2a5caa" //blue
-  this.wordsColor = "#f15b6c" //red
 }
 
 function myWords()
@@ -306,9 +287,13 @@ function drawBtn(btn)
 {
   ctx.fillStyle = btn.bgColor
   ctx.fillRect(btn.x, btn.y, btn.width, btn.height)
+
+  ctx.strokeStyle = "red"
+  ctx.strokeRect(btn.x, btn.y, btn.width, btn.height)
+
   ctx.fillStyle = btn.wordsColor
   ctx.font = "18pt Calibri"
-  ctx.fillText(btn.words, btn.x, btn.y+btn.height)
+  ctx.fillText(btn.words, btn.x, btn.y+20)
 }
 
 function updateLobby()
@@ -324,12 +309,12 @@ function updateCanvas()
   {
     updateLobby()
   }
-  else
+  else if(scene == sceneEnum.room)
   {
     drawUser()
     drawName()
     drawCards()
-    drawButtonShowCard()
+    drawBtn(showBtn)
   }
 
   //sendMsg()
@@ -425,46 +410,48 @@ function sendLoginMsg()
 
 function GetUserInfo()
 {
+
   wx.getUserInfo({
     success: function(res) {
       console.log(res.userInfo.nickName)
       myNmae.words = res.userInfo.nickName
+      scene = sceneEnum.lobby
       updateCanvas()
     },
     fail: function(res) {
+
+      const button = wx.createUserInfoButton({
+        type: 'text',
+        text: '点击获取用户名',
+        style: {
+          left: 0,
+          top: 0,
+          width: windowWidth,
+          height: windowHeight,
+          lineHeight: 40,
+          backgroundColor: '#ff0000',
+          color: '#ffffff',
+          textAlign: 'center',
+          fontSize: 40,
+          borderRadius: 4
+        }
+      })
+      button.onTap((res) => {
+        if (res && res.userInfo) {
+          console.log(res.userInfo.nickName)
+          myNmae.words = res.userInfo.nickName
+          button.destroy()
+          scene = sceneEnum.lobby
+          updateCanvas()
+        }
+      })
     }
   })
 }
 
-function getUserAuth()
-{
-  const button = wx.createUserInfoButton({
-    type: 'text',
-    text: '获取用户信息',
-    style: {
-      left: 10,
-      top: 76,
-      width: 0,
-      height: 0,
-      lineHeight: 40,
-      backgroundColor: '#ff0000',
-      color: '#ffffff',
-      textAlign: 'center',
-      fontSize: 16,
-      borderRadius: 4
-    }
-  })
-  button.onTap((res) => {
-    // 此处可以获取到用户信息
-
-  })
-}
 
 console.log("start")
-udp.onMessage(receiveMsg)
-getUserAuth()
 initGame()
-canvas.addEventListener('touchstart', touchHandler)
 
 setTimeout(() => {
   updateCanvas()
@@ -476,7 +463,7 @@ wx.onShow((result) => {
   }, 1000);
 })
 
-GetUserInfo()
+
 
 
 
