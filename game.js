@@ -24,18 +24,19 @@ var windowWidth = wx.getSystemInfoSync().windowWidth
 var userImageWidth = 80
 var userPadding = 10
 
-//准备
-var readyTop = userImageWidth
-var textHight = 20
-var readyText = "准备"
-var alreadyText = "已准备"
+//准备信息
+var readybtn = new myBtn()
+readybtn.words = "  准备"
+readybtn.x = 8*userImageWidth;
+readybtn.y = userImageWidth/2;
+var readyInfos = []
 
 //card
 var cards = []
 var cardHeight = 100
 var cardWidth = 80
 var cardWordHeight = 20
-var cardGap = 20
+var cardGap = 30
 var selectUp = 20
 var cardLineWidth = 3
 
@@ -43,14 +44,10 @@ var cardLineWidth = 3
 var showCards = []
 
 //出牌按钮
-// var showBtnX = cardWidth
-// var showBtnY = windowHeight - cardHeight - 50
-// var showBtnWidth = 60
-// var showBtnHeight = 30
 var showBtn = new myBtn()
 showBtn.x = cardWidth
 showBtn.y = windowHeight - cardHeight - 50
-showBtn.words = "出牌"
+showBtn.words = "  出牌"
 
 //进入房间按钮
 var EnterBtn = new myBtn()
@@ -83,18 +80,21 @@ var scene = sceneEnum.getUserNickName
 var msgHeadSize = 4
 var msgTpye = {
   log_in : 1,
-  user_info : 2 
+  user_info : 2,
+  ready_info : 3,
+  cards_info : 4
 }
 
 function myBtn()
 {
   this.x = 0;
   this.y = 0;
-  this.width = 120;
+  this.width = 100;
   this.height = 30
   this.words = "button"
   this.bgColor = "#2a5caa" //blue
   this.wordsColor = "#f15b6c" //red
+  this.hide = false;
 }
 
 function card()
@@ -104,10 +104,39 @@ function card()
   this.select = false
   this.btn.width = cardWidth
   this.btn.height = cardHeight
+
+  this.image = new Image()
+  this.image.width = cardWidth
+  this.image.height = cardHeight
+}
+
+function readyInfo(i)
+{
+  this.words = new myWords()
+  this.words.y = userImageWidth + 20;
+  this.words.x = userImageWidth + (userPadding+userImageWidth)*i;
+  this.words.words = "未准备"
+  this.ready = false;
+}
+
+function drawReadyInfo()
+{
+  for(var i = 0; i<readyInfos.length;i++)
+  {
+      if(readyInfos[i].ready)
+      {
+        readyInfos[i].words.words = "已准备"
+      }
+      else{
+        readyInfos[i].words.words = "未准备"
+      }
+      drawWords(readyInfos[i].words)
+  }
 }
 
 function drawName()
 {
+  var textHight = 20
   var i = 0;
   var tmp = userImageWidth
   ctx.font = "8pt Calibri"
@@ -223,6 +252,13 @@ function roomTouchHandler(event)
     showCard()
     return
   }
+  if(isBtnTouched(readybtn, x, y))
+  {
+    console.log("isBtnTouched")
+    sendReadyMsg()
+    return
+  }
+
 }
 
 
@@ -247,7 +283,8 @@ function initGame()
   udp.onMessage(receiveMsg)
   GetUserInfo()
   canvas.addEventListener('touchstart', touchHandler)
-  initCard([1,2,3,4,6,7,8], cardWidth, windowHeight - cardHeight);
+  //
+  InitReadyInfo();
 }
 
 
@@ -280,11 +317,12 @@ function myWords()
   this.y = 0;
   this.words = "words"
   this.fontSize = "8pt Calibri"
-  this.wordsColor =  "#7fb80e" //green
+  this.wordsColor =  "red" //green
 }
 
 function drawBtn(btn)
 {
+  if(btn.hide)  return;
   ctx.fillStyle = btn.bgColor
   ctx.fillRect(btn.x, btn.y, btn.width, btn.height)
 
@@ -302,6 +340,16 @@ function updateLobby()
   drawWords(myNmae)
 }
 
+
+function drawCards2()
+{
+  var image = new Image()
+  image.src="Image/1.jpg";
+  image.width = 30
+  image.height = 60
+  ctx.drawImage(image, 200, 200)
+}
+
 function updateCanvas()
 {
   ctx.clearRect(0, 0, windowWidth, windowHeight)
@@ -313,11 +361,13 @@ function updateCanvas()
   {
     drawUser()
     drawName()
+    drawReadyInfo()
+    drawBtn(readybtn)
     drawCards()
     drawBtn(showBtn)
+    drawCards2()
   }
 
-  //sendMsg()
 }
 
 function sendMsg(bf)
@@ -330,6 +380,17 @@ function sendMsg(bf)
   })
 }
 
+function sendReadyMsg()
+{
+  console.log("sendReadyMsg, myid is"+myId)
+  var nickName = myNmae.words;
+  var bf = new ArrayBuffer(msgHeadSize + 2*nickName.length);
+  var v1 = new Uint16Array(bf);
+  v1[0] = msgTpye.ready_info;
+  v1[2] = myId;
+  sendMsg(bf)
+}
+
 function copy(src, i) {
   var dst = new ArrayBuffer(src.byteLength);
   new Uint16Array(dst).set(new Uint16Array(src));
@@ -338,22 +399,45 @@ function copy(src, i) {
 
 function receiveMsg(res)
 {
-  console.log(res.message)
+  //console.log(res.message)
+  var heardByteSize = 4;//head占的字节数
   var v1 = new Uint16Array(res.message, 0, 2);
-  console.log(v1[0])
+  console.log("reive msg typ is" + v1[0])
   if(v1[0] == msgTpye.log_in)
   {
-    var v2 = new Uint16Array(res.message, 0, 3);
+    let v2 = new Uint16Array(res.message, 0, 3);
     myId = v2[2]
     console.log("receive log in id = " + myId)
     userNames[myId] = myNmae.words;
   }
   else if(v1[0] == msgTpye.user_info)
   {
-    var v2 = new Uint16Array(res.message, 0, 3);
-    var receiveId = v2[2]
-    console.log("receive user info" + receiveId)
+    let v2 = new Uint16Array(res.message, 0, 4);
+    let receiveId = v2[2]
+    let readyStatus = v2[3]
+    console.log("receive user info of " + receiveId + "ready status = " + readyStatus)
     userNames[receiveId] = ab2str(res.message.slice(6))
+    if(readyStatus)
+    {
+      readyInfos[receiveId].ready = true;
+    }  
+  }
+  else if(v1[0] == msgTpye.ready_info)
+  {
+    let v2 = new Uint16Array(res.message, 0, 3);
+    let receiveId = v2[2]
+    console.log("receive ready info of " + receiveId)
+    readyInfos[receiveId].ready = true;
+  }
+  else if(v1[0] == msgTpye.cards_info)
+  {
+    let v2 = new Uint16Array(res.message, heardByteSize, 2);
+    let receiveId = v2[0]
+    let cardSize = v2[1]
+    let v3 = new Uint16Array(res.message, heardByteSize + 4, cardSize);
+    initCard(v3, cardWidth, windowHeight - cardHeight);
+    //console.log(receiveId)
+    //console.log(cardSize)
   }
   else{
     console.log("receive invalid")
@@ -404,7 +488,7 @@ function sendLoginMsg()
     v1[i] = nickName.charCodeAt(j);
     
     }
-  console.log(bf);
+  //console.log(bf);
   sendMsg(bf)
 }
 
@@ -450,14 +534,23 @@ function GetUserInfo()
 }
 
 
+function InitReadyInfo()
+{
+  for(var i = 0;i<5;i++)
+  {
+    readyInfos[i] = new readyInfo(i);
+  }
+}
+
 console.log("start")
 initGame()
 
 setTimeout(() => {
-  updateCanvas()
+  updateCanvas() 
 }, 1000);
 
 wx.onShow((result) => {
+  console.log('lsp==onShow')
   setTimeout(() => {
     updateCanvas()
   }, 1000);
